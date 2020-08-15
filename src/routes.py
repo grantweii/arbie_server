@@ -1,62 +1,57 @@
 
 from models import Stock, AnnualFinancial, QuarterlyFinancial
-from app import app, session
-from flask import Blueprint, jsonify, request
-from sqlalchemy import or_
+from flask import Blueprint, request, g
+from app import session
+from flask_classful import FlaskView, route
+from route_helpers import output_json
+import yfinance as yf
 
-routesBlueprint = Blueprint('routes', __name__)
+class StocksView(FlaskView):
+    representations = {'application/json': output_json}
 
-@routesBlueprint.route('/')
-def hello():
-    return {"hello": "world"}
+    # retrieves all stocks
+    def index(self):
+        results = Stock.getStocks()
+        return { 'result': results }
 
-@routesBlueprint.route('/stocks')
-def stocks():
-    try:
-        stocks = session.query(Stock).all()
-        return jsonify([s.to_dict() for s in stocks])
-    except Exception as e:
-        raise
+    # searches for stocks by ticker only
+    @route('/search')
+    def search(self):
+        ticker = request.args.get('ticker')
+        results = Stock.findStocks(ticker)
+        return { 'result': results }
 
-@routesBlueprint.route('/annualfinancial')
-def annualfinancial():
-    ticker = request.args.get('ticker')
-    exchange = request.args.get('exchange')
-    fields = request.args.get('fields').split(',') if request.args.get('fields') is not None else None
-    try:
-        q = session.query(AnnualFinancial)\
-            .join(Stock, AnnualFinancial.stock_id == Stock.id)\
-            .filter(Stock.ticker == ticker)
+    @route('/<id>')
+    def getStock(self, id):
+        results = Stock.getStock(id)
+        return { 'result': results }
 
-        if exchange is not None:
-            q = q.filter(Stock.exchange == exchange)
+    @route('/<id>/holders')
+    def getHolders(self, id):
+        stock = Stock.getStock(id)
+        yfStock = yf.Ticker(stock.get('ticker'))
+        df = yfStock.institutional_holders
+        df['Date Reported'] = df['Date Reported'].astype(str)
+        df['% Out'] = df['% Out'].round(4)
+        dict = df.to_dict('records')
+        return { 'result': dict }
 
-        if fields is not None and len(fields) > 0:
-            q = q.filter(or_(AnnualFinancial.entry == field for field in fields))
-        
-        results = q.all()
-        return jsonify([f.to_dict() for f in results])
-    except Exception as e:
-        raise
+class AnnualFinancialsView(FlaskView):
+    representations = {'application/json': output_json}
 
-@routesBlueprint.route('/quarterlyfinancisal')
-def quarterlyfinancial():
-    ticker = request.args.get('ticker')
-    exchange = request.args.get('exchange')
-    fields = request.args.get('fields').split(',') if request.args.get('fields') is not None else None
-    try:
-        q = session.query(QuarterlyFinancial)\
-            .join(Stock, QuarterlyFinancial.stock_id == Stock.id)\
-            .filter(Stock.ticker == ticker)
-        
-        if exchange is not None:
-            q = q.filter(Stock.exchange == exchange)
+    def index(self):
+        stock_id = request.args.get('stock_id')
+        fieldParam = request.args.get('fields')
+        fields = request.args.get('fields').split(',') if fieldParam != 'undefined' and fieldParam is not None else None
+        results = AnnualFinancial.getAnnualFinancial(stock_id, fields)
+        return { 'result': results }
 
-        if fields is not None and len(fields) > 0:
-            q = q.filter(or_(AnnualFinancial.entry == field for field in fields))
-        
-        results = q.all()
-        return jsonify([f.to_dict() for f in results])
-    except Exception as e:
-        raise
+class QuarterlyFinancialView(FlaskView):
+    representations = {'application/json': output_json}
 
+    def index(self):
+        stock_id = request.args.get('stock_id')
+        fieldParam = request.args.get('fields')
+        fields = request.args.get('fields').split(',') if fieldParam != 'undefined' and fieldParam is not None else None
+        results = QuarterlyFinancial.getQuarterlyFinancial(stock_id, fields)
+        return { 'result': results }
