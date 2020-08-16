@@ -18,10 +18,11 @@ session = Session()
 
 # initialise routes
 
-from routes import StocksView, AnnualFinancialsView
+from routes import StocksView, AnnualFinancialsView, QuarterlyFinancialsView
 
 StocksView.register(app, route_base='/stocks', trailing_slash=False)
 AnnualFinancialsView.register(app, route_base='/annual-financials', trailing_slash=False)
+QuarterlyFinancialsView.register(app, route_base='/quarterly-financials', trailing_slash=False)
 
 if __name__ == '__main__':
     app.run()

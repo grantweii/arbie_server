@@ -6,6 +6,18 @@ from flask_classful import FlaskView, route
 from route_helpers import output_json
 import yfinance as yf
 
+def institutionalHoldersAsDict(df):
+    df['Date Reported'] = df['Date Reported'].astype(str)
+    df['% Out'] = df['% Out'].round(4)
+    dict = df.to_dict('records')
+    return dict
+
+def majorHoldersAsDict(df):
+    dict = {}
+    for index, row in df.iterrows():
+        dict[row[1]] = row[0]
+    return dict
+
 class StocksView(FlaskView):
     representations = {'application/json': output_json}
 
@@ -26,14 +38,20 @@ class StocksView(FlaskView):
         results = Stock.getStock(id)
         return { 'result': results }
 
-    @route('/<id>/holders')
-    def getHolders(self, id):
+    @route('/<id>/major-holders')
+    def getMajorHolders(self, id):
+        stock = Stock.getStock(id)
+        yfStock = yf.Ticker(stock.get('ticker'))
+        df = yfStock.major_holders
+        dict = majorHoldersAsDict(df)
+        return { 'result': dict }
+
+    @route('/<id>/institutional-holders')
+    def getInstitutionalHolders(self, id):
         stock = Stock.getStock(id)
         yfStock = yf.Ticker(stock.get('ticker'))
         df = yfStock.institutional_holders
-        df['Date Reported'] = df['Date Reported'].astype(str)
-        df['% Out'] = df['% Out'].round(4)
-        dict = df.to_dict('records')
+        dict = institutionalHoldersAsDict(df)
         return { 'result': dict }
 
 class AnnualFinancialsView(FlaskView):
@@ -46,7 +64,7 @@ class AnnualFinancialsView(FlaskView):
         results = AnnualFinancial.getAnnualFinancial(stock_id, fields)
         return { 'result': results }
 
-class QuarterlyFinancialView(FlaskView):
+class QuarterlyFinancialsView(FlaskView):
     representations = {'application/json': output_json}
 
     def index(self):
