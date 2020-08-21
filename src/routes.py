@@ -5,6 +5,7 @@ from app import session
 from flask_classful import FlaskView, route
 from route_helpers import output_json
 import yfinance as yf
+import yahoo as YahooApi
 
 def institutionalHoldersAsDict(df):
     df['Date Reported'] = df['Date Reported'].astype(str)
@@ -64,6 +65,14 @@ class AnnualFinancialsView(FlaskView):
         results = AnnualFinancial.getAnnualFinancial(stock_id, fields)
         return { 'result': results }
 
+    @route('/cashflow')
+    def getCashflows(self):
+        stock_id = request.args.get('stock_id')
+        stock = Stock.getStock(stock_id)
+        results = YahooApi.get_cashflow(stock.get('ticker'), 'yearly')
+        return { 'result': results } 
+    
+
 class QuarterlyFinancialsView(FlaskView):
     representations = {'application/json': output_json}
 
@@ -73,3 +82,10 @@ class QuarterlyFinancialsView(FlaskView):
         fields = request.args.get('fields').split(',') if fieldParam != 'undefined' and fieldParam is not None else None
         results = QuarterlyFinancial.getQuarterlyFinancial(stock_id, fields)
         return { 'result': results }
+
+    @route('/cashflow')
+    def getCashflows(self):
+        stock_id = request.args.get('stock_id')
+        stock = Stock.getStock(stock_id)
+        results = YahooApi.get_cashflow(stock.get('ticker'), 'quarterly')
+        return { 'result': results } 
