@@ -2,7 +2,9 @@ import requests
 import json
 from inflection import underscore
 
-def get_cashflow(ticker, freq='yearly'):
+def get_cashflow(ticker, exchange, freq='yearly'):
+    if (exchange == 'ASX'):
+        ticker += '.AX'
     def cleanData(data):
         jsonData = json.loads(data)
         timeseries = jsonData.get('timeseries').get('result')

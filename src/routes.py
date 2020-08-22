@@ -69,7 +69,7 @@ class AnnualFinancialsView(FlaskView):
     def getCashflows(self):
         stock_id = request.args.get('stock_id')
         stock = Stock.getStock(stock_id)
-        results = YahooApi.get_cashflow(stock.get('ticker'), 'yearly')
+        results = YahooApi.get_cashflow(stock.get('ticker'), stock.get('exchange'), 'yearly')
         return { 'result': results } 
     
 
@@ -87,5 +87,5 @@ class QuarterlyFinancialsView(FlaskView):
     def getCashflows(self):
         stock_id = request.args.get('stock_id')
         stock = Stock.getStock(stock_id)
-        results = YahooApi.get_cashflow(stock.get('ticker'), 'quarterly')
+        results = YahooApi.get_cashflow(stock.get('ticker'), stock.get('exchange'), 'quarterly')
         return { 'result': results } 
