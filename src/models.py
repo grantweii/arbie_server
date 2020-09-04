@@ -12,6 +12,8 @@ class Stock(db.Model, SerializerMixin):
     name = Column(String(length=255))
     ticker = Column(String(length=255))
     exchange = Column(String(length=255))
+    industry = Column(String(length=255))
+    sector = Column(String(length=255))
 
     def __repr__(self):
         return json.dumps({
@@ -19,6 +21,8 @@ class Stock(db.Model, SerializerMixin):
             'name': self.name,
             'ticker': self.ticker,
             'exchange': self.exchange,
+            'industry': self.industry,
+            'sector': self.sector,
         })
 
     def getStocks():
