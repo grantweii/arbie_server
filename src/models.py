@@ -3,7 +3,7 @@ from sqlalchemy_serializer import SerializerMixin
 import json
 from flask_sqlalchemy import SQLAlchemy
 from app import session, db
-from sqlalchemy import or_
+from sqlalchemy import or_, distinct
 
 class Stock(db.Model, SerializerMixin):
     __tablename__ = 'stock'
@@ -38,6 +38,31 @@ class Stock(db.Model, SerializerMixin):
         results = q.all()
         return [entry.to_dict() for entry in results]
 
+    def getIndustries(sector=None):
+        q = session.query(distinct(Stock.industry))
+        if sector is not None:
+            q = q.filter(Stock.sector == sector)
+        results = q.all()
+        return [entry for (entry,) in results if bool(entry)]
+
+    def getSectors(industry=None):
+        q = session.query(distinct(Stock.sector))
+        if industry is not None:
+            q = q.filter(Stock.industry == industry)
+        results = q.all()
+        return [entry for (entry,) in results if bool(entry)]
+
+    def getStockList(sector=None, industry=None, exchange=None, pageSize=50, pageNumber=0):
+        q = session.query(Stock)
+        if sector is not None:
+            q = q.filter(Stock.sector == sector)
+        if industry is not None:
+            q  = q.filter(Stock.industry == industry)
+        if exchange is not None:
+            q = q.filter(Stock.exchange == exchange)
+        results = q.limit(pageSize).offset(pageNumber * pageSize).all()
+        return [entry.to_dict() for entry in results]
+    
 class AnnualFinancial(db.Model, SerializerMixin):
     __tablename__ = 'annualfinancial'
 

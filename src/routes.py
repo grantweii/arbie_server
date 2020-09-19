@@ -1,11 +1,15 @@
 
-from models import Stock, AnnualFinancial, QuarterlyFinancial
+from .models import Stock, AnnualFinancial, QuarterlyFinancial
 from flask import Blueprint, request, g
 from app import session
 from flask_classful import FlaskView, route
-from route_helpers import output_json
+from .route_helpers import output_json
 import yfinance as yf
-import yahoo as YahooApi
+from .yahoo import get_cashflow
+from .lists import exchanges
+from iexfinance.stocks import Stock as IEXStock
+from .config import Config
+import os
 
 def institutionalHoldersAsDict(df):
     df['Date Reported'] = df['Date Reported'].astype(str)
@@ -34,6 +38,14 @@ class StocksView(FlaskView):
         results = Stock.findStocks(ticker)
         return { 'result': results }
 
+    @route('/list')
+    def stockList(self):
+        sector = request.args.get('sector')
+        industry = request.args.get('industry')
+        exchange = request.args.get('exchange')
+        results = Stock.getStockList(sector, industry, exchange)
+        return { 'result': results }
+
     @route('/<id>')
     def getStock(self, id):
         results = Stock.getStock(id)
@@ -55,13 +67,39 @@ class StocksView(FlaskView):
         dict = institutionalHoldersAsDict(df)
         return { 'result': dict }
 
+    @route('/industries')
+    def getIndustries(self):
+        sector = request.args.get('sector')
+        results = Stock.getIndustries(sector)
+        return { 'result': results }
+
+    @route('/sectors')
+    def getSectors(self):
+        industry = request.args.get('industry')
+        results = Stock.getSectors(industry)
+        return { 'result': results }
+
+    @route('/exchanges')
+    def getExchanges(self):
+        return { 'result': exchanges }
+
+    @route('/<id>/price')
+    def getEODPrice(self, id):
+        stock = Stock.getStock(id)
+        if stock.get('exchange') == 'ASX':
+            return { 'result': None }
+        iex = IEXStock(stock.get('ticker'), token=os.getenv('IEX_SANDBOX_TOKEN'))
+        price = iex.get_previous_day_prices()
+        return { 'result': price }
+         
+
 class AnnualFinancialsView(FlaskView):
     representations = {'application/json': output_json}
 
     def index(self):
         stock_id = request.args.get('stock_id')
         fieldParam = request.args.get('fields')
-        fields = request.args.get('fields').split(',') if fieldParam != 'undefined' and fieldParam is not None else None
+        fields = request.args.get('fields').split(',') if fieldParam is not None else None
         results = AnnualFinancial.getAnnualFinancial(stock_id, fields)
         return { 'result': results }
 
@@ -69,7 +107,7 @@ class AnnualFinancialsView(FlaskView):
     def getCashflows(self):
         stock_id = request.args.get('stock_id')
         stock = Stock.getStock(stock_id)
-        results = YahooApi.get_cashflow(stock.get('ticker'), stock.get('exchange'), 'yearly')
+        results = get_cashflow(stock.get('ticker'), stock.get('exchange'), 'yearly')
         return { 'result': results } 
     
 
@@ -79,7 +117,7 @@ class QuarterlyFinancialsView(FlaskView):
     def index(self):
         stock_id = request.args.get('stock_id')
         fieldParam = request.args.get('fields')
-        fields = request.args.get('fields').split(',') if fieldParam != 'undefined' and fieldParam is not None else None
+        fields = request.args.get('fields').split(',') if fieldParam is not None else None
         results = QuarterlyFinancial.getQuarterlyFinancial(stock_id, fields)
         return { 'result': results }
 
@@ -87,5 +125,5 @@ class QuarterlyFinancialsView(FlaskView):
     def getCashflows(self):
         stock_id = request.args.get('stock_id')
         stock = Stock.getStock(stock_id)
-        results = YahooApi.get_cashflow(stock.get('ticker'), stock.get('exchange'), 'quarterly')
+        results = get_cashflow(stock.get('ticker'), stock.get('exchange'), 'quarterly')
         return { 'result': results } 

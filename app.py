@@ -1,5 +1,5 @@
 from flask import Flask
-from config import DevelopmentConfig
+from src.config import DevelopmentConfig
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
@@ -18,7 +18,7 @@ session = Session()
 
 # initialise routes
 
-from routes import StocksView, AnnualFinancialsView, QuarterlyFinancialsView
+from src.routes import StocksView, AnnualFinancialsView, QuarterlyFinancialsView
 
 StocksView.register(app, route_base='/stocks', trailing_slash=False)
 AnnualFinancialsView.register(app, route_base='/annual-financials', trailing_slash=False)
