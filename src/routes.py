@@ -43,7 +43,43 @@ class StocksView(FlaskView):
         sector = request.args.get('sector')
         industry = request.args.get('industry')
         exchange = request.args.get('exchange')
-        results = Stock.getStockList(sector, industry, exchange)
+        pageSize = int(request.args.get('pageSize'))
+        pageIndex = int(request.args.get('pageIndex'))
+        data = Stock.getStockList(sector, industry, exchange, pageSize, pageIndex)
+
+        # filter out ASX stocks because IEX does not support
+        batchTickers = []
+        for stock in data.get('results'):
+            if stock.get('exchange') == 'ASX':
+                continue
+            batchTickers.append(stock.get('ticker'))
+        
+        batch = IEXStock(batchTickers)
+        batchPrices = batch.get_previous_day_prices()
+
+        listWithPrices = []
+        for stock in data.get('results'):
+            if stock.get('exchange') == 'ASX':
+                listWithPrices.append(stock)
+                continue
+
+            iexStock = batchPrices.get(stock.get('ticker'))
+            if iexStock is None:
+                listWithPrices.append(stock)
+                continue
+
+            listWithPrices.append({
+                **stock,
+                'close': iexStock.get('close'),
+                'volume': iexStock.get('volume'),
+                'date': iexStock.get('date'),
+                'changePercent': iexStock.get('changePercent')
+            })
+
+        results = {
+            'results': listWithPrices,
+            'count': data.get('count'),
+        }
         return { 'result': results }
 
     @route('/<id>')
@@ -88,7 +124,7 @@ class StocksView(FlaskView):
         stock = Stock.getStock(id)
         if stock.get('exchange') == 'ASX':
             return { 'result': None }
-        iex = IEXStock(stock.get('ticker'), token=os.getenv('IEX_SANDBOX_TOKEN'))
+        iex = IEXStock(stock.get('ticker'))
         price = iex.get_previous_day_prices()
         return { 'result': price }
          

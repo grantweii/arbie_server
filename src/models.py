@@ -3,7 +3,7 @@ from sqlalchemy_serializer import SerializerMixin
 import json
 from flask_sqlalchemy import SQLAlchemy
 from app import session, db
-from sqlalchemy import or_, distinct
+from sqlalchemy import or_, distinct, func
 
 class Stock(db.Model, SerializerMixin):
     __tablename__ = 'stock'
@@ -52,16 +52,22 @@ class Stock(db.Model, SerializerMixin):
         results = q.all()
         return [entry for (entry,) in results if bool(entry)]
 
-    def getStockList(sector=None, industry=None, exchange=None, pageSize=50, pageNumber=0):
+    def getStockList(sector=None, industry=None, exchange=None, pageSize=50, pageIndex=0):
         q = session.query(Stock)
+        countQuery = session.query(func.count(Stock.id))
         if sector is not None:
             q = q.filter(Stock.sector == sector)
+            countQuery = countQuery.filter(Stock.sector == sector)
         if industry is not None:
             q  = q.filter(Stock.industry == industry)
+            countQuery = countQuery.filter(Stock.industry == industry)
         if exchange is not None:
             q = q.filter(Stock.exchange == exchange)
-        results = q.limit(pageSize).offset(pageNumber * pageSize).all()
-        return [entry.to_dict() for entry in results]
+            countQuery = countQuery.filter(Stock.exchange == exchange)
+        count = countQuery.scalar()
+        results = q.limit(pageSize).offset(pageIndex * pageSize).all()
+        resultsArray = [entry.to_dict() for entry in results]
+        return { 'results': resultsArray, 'count': count }
     
 class AnnualFinancial(db.Model, SerializerMixin):
     __tablename__ = 'annualfinancial'
