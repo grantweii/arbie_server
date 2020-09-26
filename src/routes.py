@@ -85,19 +85,29 @@ class StocksView(FlaskView):
     @route('/<id>')
     def getStock(self, id):
         stock = Stock.getStock(id)
+        ticker = stock.get('ticker')
+        # append .AX to ASX tickers
         if stock.get('exchange') == 'ASX':
-            return { 'result': None }
-        iexStock = IEXStock(stock.get('ticker'))
-        price = iexStock.get_previous_day_prices()
-        yfStock = yf.Ticker(stock.get('ticker'))
+            ticker += '.AX'
+        yfStock = yf.Ticker(ticker)
         info = yfStock.info
         results = {
             **stock,
+            'summary': info.get('longBusinessSummary'),
+        }
+        # cant retrieve price for ASX stocks
+        if stock.get('exchange') == 'ASX':
+            return { 'result': results }
+        
+        iexStock = IEXStock(ticker)
+        price = iexStock.get_previous_day_prices()
+
+        results = {
+            **results,
             'close': price.get('close'),
             'volume': price.get('volume'),
             'date': price.get('date'),
             'changePercent': price.get('changePercent'),
-            'summary': info.get('longBusinessSummary'),
         }
         return { 'result': results }
 
