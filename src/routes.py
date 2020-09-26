@@ -84,7 +84,21 @@ class StocksView(FlaskView):
 
     @route('/<id>')
     def getStock(self, id):
-        results = Stock.getStock(id)
+        stock = Stock.getStock(id)
+        if stock.get('exchange') == 'ASX':
+            return { 'result': None }
+        iexStock = IEXStock(stock.get('ticker'))
+        price = iexStock.get_previous_day_prices()
+        yfStock = yf.Ticker(stock.get('ticker'))
+        info = yfStock.info
+        results = {
+            **stock,
+            'close': price.get('close'),
+            'volume': price.get('volume'),
+            'date': price.get('date'),
+            'changePercent': price.get('changePercent'),
+            'summary': info.get('longBusinessSummary'),
+        }
         return { 'result': results }
 
     @route('/<id>/major-holders')
@@ -118,15 +132,6 @@ class StocksView(FlaskView):
     @route('/exchanges')
     def getExchanges(self):
         return { 'result': exchanges }
-
-    @route('/<id>/price')
-    def getEODPrice(self, id):
-        stock = Stock.getStock(id)
-        if stock.get('exchange') == 'ASX':
-            return { 'result': None }
-        iex = IEXStock(stock.get('ticker'))
-        price = iex.get_previous_day_prices()
-        return { 'result': price }
          
 
 class AnnualFinancialsView(FlaskView):
