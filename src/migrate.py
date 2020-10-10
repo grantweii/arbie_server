@@ -4,7 +4,7 @@ from db import DB
 
 if __name__ == '__main__':
     # change script to run here
-    script = importlib.import_module('migrations.5-insert-fresh-fundamentals')
+    script = importlib.import_module('migrations.6-retry-pulling-industry')
     
     try:
         db = DB()
