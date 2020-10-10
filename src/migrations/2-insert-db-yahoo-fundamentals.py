@@ -17,7 +17,7 @@ def run(db):
         if file == '.DS_Store':
             continue
         with open('../../../../datafiles/fundamentals/asx/annual/{}'.format(file), newline='') as f: # change: folder and exchange
-            reader = csv.reader(f, delimiter=',')
+            reader = csv.DictReader(f, delimiter=',')
             findStockIdQuery = "SELECT id from stock where ticker = '%s' and exchange = 'ASX'" % (ticker) # change: exchange
             data = db.selectQuery(findStockIdQuery)
             stock_id = data[0][0]

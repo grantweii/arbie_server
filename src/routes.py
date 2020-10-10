@@ -5,7 +5,7 @@ from app import session
 from flask_classful import FlaskView, route
 from .route_helpers import output_json
 import yfinance as yf
-from .yahoo import get_cashflow
+from .yahoo.utils import get_cashflow
 from .lists import exchanges
 from iexfinance.stocks import Stock as IEXStock
 from .config import Config
