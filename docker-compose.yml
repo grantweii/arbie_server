@@ -1,0 +1,18 @@
+version: '3.4'
+
+services:
+  arbieserver:
+    image: arbieserver
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 5001:5000
+    environment:
+      FLASK_ENV: development
+  postgres:
+    image: postgres
+    env_file:
+      - postgres.env
+    ports:
+      - 5430:5432

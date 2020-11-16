@@ -1,9 +1,4 @@
-from setuptools import setup
+from distutils.core import setup
+from Cython.Build import cythonize
 
-setup(
-    name='flask-run-dev',
-    ...,
-    entry_points={
-        
-    },
-)
+setup(ext_modules = cythonize('cy.pyx', annotate=True))
