@@ -1,4 +1,6 @@
-from distutils.core import setup
+from setuptools import setup, Extension
 from Cython.Build import cythonize
 
-setup(ext_modules = cythonize('cy.pyx', annotate=True))
+extensions = [Extension('src.backtests.*', ['src/backtests/*.pyx'])]
+
+setup(name='arbie', ext_modules=cythonize(extensions, annotate=True))

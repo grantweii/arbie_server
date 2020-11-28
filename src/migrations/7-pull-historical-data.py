@@ -33,13 +33,6 @@ def run(db):
                     if exchange == 'asx': 
                         ticker += '.AX'
 
-                    params = {
-                        'period1': -2208988800, # this is date for 1900 Jan 1
-                        'period2': int(time.time()), # this will be now
-                        'interval': '1d',
-                        'incluePrePost': False,
-                        'events': 'div,splits',
-                    }
                     # get data from yfinance
                     df = yf.Ticker(ticker).history(period='max')
 

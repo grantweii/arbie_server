@@ -1,5 +1,6 @@
-#!/usr/bin/python
+
 import psycopg2
+import psycopg2.extras
 
 class DB():
     def __init__(self):
@@ -38,7 +39,7 @@ class DB():
 
     def selectQuery(self, query):
         if self.connection is not None:
-            cur = self.connection.cursor()
+            cur = self.connection.cursor(cursor_factory=psycopg2.extras.DictCursor)
             cur.execute(query)
             data = cur.fetchall()
             cur.close()
