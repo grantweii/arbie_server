@@ -160,7 +160,7 @@ def initBacktester(db, tickers, exchange):
         print('***** Running backtest for %s *****' % ticker)
         # initialise DB connection 
         data = getData(db, ticker, exchange)
-        
+
         cerebro = bt.Cerebro()
         cerebro.addstrategy(script.Backtest, ticker=ticker)
 
@@ -169,7 +169,10 @@ def initBacktester(db, tickers, exchange):
         
         cerebro.broker.setcash(10000)
 
-        cerebro.run()
+        strat = cerebro.run()
+        object_methods = [method_name for method_name in dir(strat)
+                  if callable(getattr(strat, method_name))]
+        print('strat is', strat[0].getResults())
     
     print('Final Broker Portfolio Value: %.2f' % cerebro.broker.get_value())
     print('Final Broker Cash: %.2f' % cerebro.broker.get_cash())

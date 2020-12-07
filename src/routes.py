@@ -10,6 +10,7 @@ from .lists import exchanges
 from iexfinance.stocks import Stock as IEXStock
 from .config import Config
 import os
+from .backtests import runner as backtestRunner
 
 def institutionalHoldersAsDict(df):
     df['Date Reported'] = df['Date Reported'].astype(str)
@@ -24,7 +25,7 @@ def majorHoldersAsDict(df):
     return dict
 
 class StocksView(FlaskView):
-    representations = {'application/json': output_json}
+    # representations = {'application/json': output_json}
 
     # retrieves all stocks
     def index(self):
@@ -145,7 +146,7 @@ class StocksView(FlaskView):
          
 
 class AnnualFinancialsView(FlaskView):
-    representations = {'application/json': output_json}
+    # representations = {'application/json': output_json}
 
     def index(self):
         stock_id = request.args.get('stock_id')
@@ -163,7 +164,7 @@ class AnnualFinancialsView(FlaskView):
     
 
 class QuarterlyFinancialsView(FlaskView):
-    representations = {'application/json': output_json}
+    # representations = {'application/json': output_json}
 
     def index(self):
         stock_id = request.args.get('stock_id')
@@ -178,3 +179,11 @@ class QuarterlyFinancialsView(FlaskView):
         stock = Stock.getStock(stock_id)
         results = get_cashflow(stock.get('ticker'), stock.get('exchange'), 'quarterly')
         return { 'result': results } 
+
+class BacktestView(FlaskView):
+    # representations = {'application/json': output_json}
+
+    @route('/run', methods=['POST'])
+    def runBacktest(self):
+        backtestRunner.run()
+        return { 'result': { 'hello': 'world' } } 
