@@ -1,5 +1,5 @@
 import sys
-from src.backtests import runner as backtestRunner
+from src.backtests.runner import BacktestRunner
 # from src.backtests import runner as backtestRunner
 
 # This file is for running scripts. The problem we have is that it is difficult to run python scripts within a project that are in different folders
@@ -14,5 +14,5 @@ if __name__ == '__main__':
     if len(sys.argv) > 2:
         store = sys.argv[2]
     if script == 'backtest':
-        backtestRunner.run(store=store)
+        BacktestRunner().run(store=store)
     

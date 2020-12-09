@@ -123,60 +123,6 @@ def pullHistorical(tickers):
 
         time.sleep(0.5)
 
-''' Entry method into the script '''
-def run(store=None):
-    start_time = time.time()
-    validateParams()
-
-    # initialise DB connection
-    db = database.DB()
-
-    # for industries, sectors as input need to get relevant tickers
-    # check existance of the entry before querying
-    if len(industries):
-        query = getTickersFromIndustries(db)
-    elif len(tickers):
-        query = getTickersFromTickers(db)
-    elif len(sectors):
-        query = getTickersFromSectors(db)
-
-    data = db.selectQuery(query)
-    tickersToPull = [entry['ticker'] for entry in data]
-    print('Found %s stocks' % len(tickersToPull))
-    print('List:', tickersToPull)
-    
-    # pull fresh prices
-    pullHistorical(tickersToPull)
-
-    initBacktester(db, tickersToPull, exchange)
-
-    print("--- %s seconds ---" % (time.time() - start_time))
-
-def initBacktester(db, tickers, exchange):
-    if not len(tickers):
-        raise ValueError('Need to provide at least 1 ticker to run a backtest')
-
-    for ticker in tickers:
-        print('***** Running backtest for %s *****' % ticker)
-        # initialise DB connection 
-        data = getData(db, ticker, exchange)
-
-        cerebro = bt.Cerebro()
-        cerebro.addstrategy(script.Backtest, ticker=ticker)
-
-        cerebro.adddata(data)
-        print('Starting Portfolio Value: %.2f' % cerebro.broker.get_value())
-        
-        cerebro.broker.setcash(10000)
-
-        strat = cerebro.run()
-        object_methods = [method_name for method_name in dir(strat)
-                  if callable(getattr(strat, method_name))]
-        print('strat is', strat[0].getResults())
-    
-    print('Final Broker Portfolio Value: %.2f' % cerebro.broker.get_value())
-    print('Final Broker Cash: %.2f' % cerebro.broker.get_cash())
-
 def getData(database, ticker, exchange):
     datafilePath = os.path.abspath('/Users/grantwei/datafiles/price/{}/{}.csv'.format(exchange.lower(), ticker))
     df = pd.read_csv(datafilePath)
@@ -185,3 +131,62 @@ def getData(database, ticker, exchange):
     df['Date'] = pd.to_datetime(df['Date'])
     df = df.set_index('Date')
     return bt.feeds.PandasData(dataname=df)
+
+class BacktestRunner():
+
+    ''' Entry method into the script '''
+    def run(self, store=None):
+        start_time = time.time()
+        validateParams()
+
+        # initialise DB connection
+        db = database.DB()
+
+        # for industries, sectors as input need to get relevant tickers
+        # check existance of the entry before querying
+        if len(industries):
+            query = getTickersFromIndustries(db)
+        elif len(tickers):
+            query = getTickersFromTickers(db)
+        elif len(sectors):
+            query = getTickersFromSectors(db)
+
+        data = db.selectQuery(query)
+        tickersToPull = [entry['ticker'] for entry in data]
+        print('Found %s stocks' % len(tickersToPull))
+        print('List:', tickersToPull)
+        
+        # pull fresh prices
+        pullHistorical(tickersToPull)
+
+        backtest = self.initBacktester(db, tickersToPull, exchange)
+
+        print("--- %s seconds ---" % (time.time() - start_time))
+
+
+    def initBacktester(self, db, tickers, exchange):
+        if not len(tickers):
+            raise ValueError('Need to provide at least 1 ticker to run a backtest')
+
+        tickerResults = {}
+        for ticker in tickers:
+            print('***** Running backtest for %s *****' % ticker)
+            # initialise DB connection 
+            data = getData(db, ticker, exchange)
+
+            cerebro = bt.Cerebro()
+            cerebro.addstrategy(script.Backtest, ticker=ticker)
+
+            cerebro.adddata(data)
+            
+            cerebro.broker.setcash(10000)
+
+            strat = cerebro.run()
+
+            tickerResults = { **tickerResults, ticker: strat[0].getResults() }
+
+        self.performance = tickerResults
+
+
+        
+

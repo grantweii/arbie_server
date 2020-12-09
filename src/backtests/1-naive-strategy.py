@@ -11,8 +11,6 @@ class Backtest(bt.Strategy):
     params = dict(ticker='')
     STARTING_CASH = 10000
     POSITION_SIZE_PCNT = 1
-    entries = []
-    exits = []
     def __init__(self):
         self.portfolio_shares = 0
         self.cash = self.STARTING_CASH
@@ -24,7 +22,8 @@ class Backtest(bt.Strategy):
         self.ticker = self.params.ticker
         # access current date by self.date(0)
         self.date = self.datas[0].datetime.date
-        print('abc123**', type(self.datas[0].datetime))
+        self.entries = []
+        self.exits = []
         
     def log(self, txt, dt=None):
         ''' Logging function for this strategy'''
@@ -43,13 +42,12 @@ class Backtest(bt.Strategy):
             size = self.calculateSize(self.close[0])
             self.portfolio_shares = size
             self.cash = 0
-            self.entries.append(self.date(0))
-            print('date', type(self.date(0)))
+            self.entries.append(self.date(0).strftime('%Y-%m-%d'))
         elif self.sma < self.data.close and self.portfolio_shares > 0:
             cash = self.portfolio_shares * self.close[0]
             self.portfolio_shares = 0
             self.cash = cash
-            self.exits.append(self.date(0))
+            self.exits.append(self.date(0).strftime('%Y-%m-%d'))
 
     def stop(self):
         print('*** BT End for %s ***' % self.ticker)
@@ -61,5 +59,9 @@ class Backtest(bt.Strategy):
     def getResults(self):
         return {
             'entries': self.entries,
-            'exits': self.exits
+            'exits': self.exits,
+            'price': self.close[0],
+            'num_shares': self.portfolio_shares,
+            'cash': self.cash,
+            'value_shares': self.close[0] * self.portfolio_shares
         }

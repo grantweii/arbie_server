@@ -10,7 +10,7 @@ from .lists import exchanges
 from iexfinance.stocks import Stock as IEXStock
 from .config import Config
 import os
-from .backtests import runner as backtestRunner
+from .backtests.runner import BacktestRunner
 
 def institutionalHoldersAsDict(df):
     df['Date Reported'] = df['Date Reported'].astype(str)
@@ -185,5 +185,6 @@ class BacktestView(FlaskView):
 
     @route('/run', methods=['POST'])
     def runBacktest(self):
-        backtestRunner.run()
-        return { 'result': { 'hello': 'world' } } 
+        backtest = BacktestRunner()
+        backtest.run()
+        return { 'result': backtest.performance } 
