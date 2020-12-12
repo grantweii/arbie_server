@@ -5,25 +5,31 @@ import os
 from datetime import datetime
 import csv
 import time
+import yfinance as yf
+import numpy as np
+
+
+def cleanData(data):
+    """ 
+    """
+    jsonData = json.loads(data)
+    timeseries = jsonData.get('timeseries').get('result')
+    list = []
+    for item in timeseries:
+        key = item.get('meta').get('type')[0]
+        values = item.get(key)
+        cleanKey = underscore(key.replace('annual', '').replace('quarterly', ''))
+        if values is not None:
+            for entry in values:
+                if entry is not None:
+                    entryDate = entry.get('asOfDate')
+                    entryFigure = entry.get('reportedValue').get('raw')
+                    list.append({ 'entry': cleanKey, 'date': entryDate, 'value': entryFigure })
+    return list
 
 def get_cashflow(ticker, exchange, freq='yearly'):
     if (exchange == 'ASX'):
         ticker += '.AX'
-    def cleanData(data):
-        jsonData = json.loads(data)
-        timeseries = jsonData.get('timeseries').get('result')
-        list = []
-        for item in timeseries:
-            key = item.get('meta').get('type')[0]
-            values = item.get(key)
-            cleanKey = underscore(key.replace('annual', '').replace('quarterly', ''))
-            if values is not None:
-                for entry in values:
-                    if entry is not None:
-                        entryDate = entry.get('asOfDate')
-                        entryFigure = entry.get('reportedValue').get('raw')
-                        list.append({ 'entry': cleanKey, 'date': entryDate, 'value': entryFigure })
-        return list
 
     epochTime = int(time.time())
     if freq == 'yearly':
@@ -35,6 +41,46 @@ def get_cashflow(ticker, exchange, freq='yearly'):
     cashflow = cleanData(data)
 
     return cashflow
+
+def get_roe(ticker, exchange, freq='yearly'):
+    if (exchange == 'ASX'):
+        ticker += '.AX'
+
+    stock = yf.Ticker(ticker)
+
+    if freq == 'yearly':
+        netIncomeSeries = stock.financials.loc['Net Income']
+        ShareholderEquityDf = stock.balance_sheet.loc['Total Stockholder Equity'].to_frame()
+        ShareholderEquityDf = ShareholderEquityDf.iloc[::-1]
+    else:
+        netIncomeSeries = stock.quarterly_financials.loc['Net Income']
+        ShareholderEquityDf = stock.quarterly_balance_sheet.loc['Total Stockholder Equity'].to_frame()
+        ShareholderEquityDf = ShareholderEquityDf.iloc[::-1]
+
+    averageShareHolderEquity = []
+    for index, value in enumerate(ShareholderEquityDf.values):
+        if index == 0:
+            # we cannot calculate the average for the first date
+            averageShareHolderEquity.append(0)
+            continue
+        avgSE = (ShareholderEquityDf.values[index - 1] + value) / 2
+        averageShareHolderEquity.append(avgSE[0])
+    ShareholderEquityDf['average_shareholder_equity'] = averageShareHolderEquity
+
+    roe = []
+    for index, value in enumerate(ShareholderEquityDf['average_shareholder_equity'].values):
+        if index == 0:
+            roe.append(0)
+            continue
+        roeTmp = netIncomeSeries.iloc[index] / value
+        roe.append(roeTmp)
+    ShareholderEquityDf['return_on_equity'] = roe
+
+    newIndex = ShareholderEquityDf.index.strftime('%Y-%m-%d')
+    ShareholderEquityDf['Index'] = newIndex
+    returnDf = ShareholderEquityDf.drop(columns=['Total Stockholder Equity'])
+    returnDf = returnDf.set_index('Index')
+    return returnDf.to_json()
 
 
 # we will ony store values >= the startDate
@@ -121,5 +167,5 @@ def store_premium_financials(ticker, freq, startingDate, exchange):
             failWriter = csv.writer(failCsv)
             failWriter.writerow(ticker)
 
-
-            
+if __name__ == '__main__':
+    get_roe("MSFT", 'NASDAQ')

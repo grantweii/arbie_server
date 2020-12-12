@@ -1,15 +1,19 @@
+# Standard Python Libraries
+import os
 
-from .models import Stock, AnnualFinancial, QuarterlyFinancial
+# Python Libraries
 from flask import Blueprint, request, g
 from app import session
 from flask_classful import FlaskView, route
-from .route_helpers import output_json
 import yfinance as yf
-from .yahoo.utils import get_cashflow
-from .lists import exchanges
 from iexfinance.stocks import Stock as IEXStock
+
+# Local Libraries
+from .models import Stock, AnnualFinancial, QuarterlyFinancial
+from .route_helpers import output_json
+from .yahoo.utils import get_cashflow, get_roe
+from .lists import exchanges
 from .config import Config
-import os
 
 def institutionalHoldersAsDict(df):
     df['Date Reported'] = df['Date Reported'].astype(str)
@@ -160,7 +164,13 @@ class AnnualFinancialsView(FlaskView):
         stock = Stock.getStock(stock_id)
         results = get_cashflow(stock.get('ticker'), stock.get('exchange'), 'yearly')
         return { 'result': results } 
-    
+
+    @route('/return-on-equity')
+    def getRoe(self):
+        stock_id = request.args.get('stock_id')
+        stock = Stock.getStock(stock_id)
+        results = get_roe(stock.get('ticker'), stock.get('exchange'), 'yearly')
+        return { 'result': results }
 
 class QuarterlyFinancialsView(FlaskView):
     representations = {'application/json': output_json}
@@ -178,3 +188,11 @@ class QuarterlyFinancialsView(FlaskView):
         stock = Stock.getStock(stock_id)
         results = get_cashflow(stock.get('ticker'), stock.get('exchange'), 'quarterly')
         return { 'result': results } 
+    
+    @route('/return-on-equity')
+    def getRoe(self):
+        stock_id = request.args.get('stock_id')
+        stock = Stock.getStock(stock_id)
+        results = get_roe(stock.get('ticker'), stock.get('exchange'), 'quarterly')
+        return { 'result': results }
+    
