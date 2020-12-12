@@ -6,8 +6,8 @@ import os
 from src import db as database
 import csv
 
-''' This is a naive strategy for testing purposes. If todays price > yesterdays price, buy, otherwise sell '''
 class Backtest(bt.Strategy):
+    ''' This is a naive strategy for testing purposes. If todays price > yesterdays price, buy, otherwise sell '''
     params = dict(ticker='')
     STARTING_CASH = 10000
     POSITION_SIZE_PCNT = 1

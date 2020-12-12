@@ -10,7 +10,9 @@ from .lists import exchanges
 from iexfinance.stocks import Stock as IEXStock
 from .config import Config
 import os
-from .backtests.runner import BacktestRunner
+from .backtest.runner import BacktestRunner
+import importlib
+import json
 
 def institutionalHoldersAsDict(df):
     df['Date Reported'] = df['Date Reported'].astype(str)
@@ -185,6 +187,18 @@ class BacktestView(FlaskView):
 
     @route('/run', methods=['POST'])
     def runBacktest(self):
-        backtest = BacktestRunner()
+        script = request.json.get('script')
+        backtest = BacktestRunner(script)
         backtest.run()
         return { 'result': backtest.performance } 
+
+    @route('/all', methods=['GET'])
+    def getAll(self):
+        path = 'src/backtest/strategies'
+        files = [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
+        backtests = []
+        for file in files:
+            script = importlib.import_module('src.backtest.strategies.%s' % file.replace('.py', ''))
+            backtests.append({ 'name': file, 'description': script.Backtest.__doc__})
+
+        return { 'result': backtests }

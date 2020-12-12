@@ -1,6 +1,6 @@
 import sys
-from src.backtests.runner import BacktestRunner
-# from src.backtests import runner as backtestRunner
+from src.backtest.runner import BacktestRunner
+# from src.backtest import runner as backtestRunner
 
 # This file is for running scripts. The problem we have is that it is difficult to run python scripts within a project that are in different folders
 

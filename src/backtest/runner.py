@@ -4,7 +4,7 @@ import yfinance as yf
 import time
 from datetime import timedelta, date, datetime
 import importlib
-from src.backtests import backtest
+from src.backtest import backtest
 import backtrader as bt
 import json
 import pandas as pd
@@ -20,7 +20,7 @@ industries = []
 sectors = []
 exchange = 'ASX'
 
-script = importlib.import_module('src.backtests.1-naive-strategy')
+default_script = importlib.import_module('src.backtest.strategies.1-naive-strategy')
 
 def psqlArray(arr):
     arraySubQueryStr = ""
@@ -134,8 +134,12 @@ def getData(database, ticker, exchange):
 
 class BacktestRunner():
 
-    ''' Entry method into the script '''
+    def __init__(self, script=default_script):
+        print('SCRIPT SENT THRU', script)
+        self.script = importlib.import_module('src.backtest.strategies.%s' % script.replace('.py', ''))
+
     def run(self, store=None):
+        ''' Entry method into the script '''
         start_time = time.time()
         validateParams()
 
@@ -175,7 +179,7 @@ class BacktestRunner():
             data = getData(db, ticker, exchange)
 
             cerebro = bt.Cerebro()
-            cerebro.addstrategy(script.Backtest, ticker=ticker)
+            cerebro.addstrategy(self.script.Backtest, ticker=ticker)
 
             cerebro.adddata(data)
             
