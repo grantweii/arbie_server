@@ -1,6 +1,7 @@
 import json
 from flask import make_response
 
+# Currently not being used, flask-cors is used instead
 def output_json(data, code, headers=None):
     dumped = json.dumps(data)
     if headers:

@@ -10,6 +10,9 @@ from .lists import exchanges
 from iexfinance.stocks import Stock as IEXStock
 from .config import Config
 import os
+from .backtest.runner import BacktestRunner
+import importlib
+import json
 
 def institutionalHoldersAsDict(df):
     df['Date Reported'] = df['Date Reported'].astype(str)
@@ -24,7 +27,7 @@ def majorHoldersAsDict(df):
     return dict
 
 class StocksView(FlaskView):
-    representations = {'application/json': output_json}
+    # representations = {'application/json': output_json}
 
     # retrieves all stocks
     def index(self):
@@ -145,7 +148,7 @@ class StocksView(FlaskView):
          
 
 class AnnualFinancialsView(FlaskView):
-    representations = {'application/json': output_json}
+    # representations = {'application/json': output_json}
 
     def index(self):
         stock_id = request.args.get('stock_id')
@@ -163,7 +166,7 @@ class AnnualFinancialsView(FlaskView):
     
 
 class QuarterlyFinancialsView(FlaskView):
-    representations = {'application/json': output_json}
+    # representations = {'application/json': output_json}
 
     def index(self):
         stock_id = request.args.get('stock_id')
@@ -178,3 +181,24 @@ class QuarterlyFinancialsView(FlaskView):
         stock = Stock.getStock(stock_id)
         results = get_cashflow(stock.get('ticker'), stock.get('exchange'), 'quarterly')
         return { 'result': results } 
+
+class BacktestView(FlaskView):
+    # representations = {'application/json': output_json}
+
+    @route('/run', methods=['POST'])
+    def runBacktest(self):
+        script = request.json.get('script')
+        backtest = BacktestRunner(script)
+        backtest.run()
+        return { 'result': backtest.performance } 
+
+    @route('/all', methods=['GET'])
+    def getAll(self):
+        path = 'src/backtest/strategies'
+        files = [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
+        backtests = []
+        for file in files:
+            script = importlib.import_module('src.backtest.strategies.%s' % file.replace('.py', ''))
+            backtests.append({ 'name': file, 'description': script.Backtest.__doc__})
+
+        return { 'result': backtests }
