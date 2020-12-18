@@ -1,12 +1,18 @@
+# Standard Python Libraries
 import requests
 import json
-from inflection import underscore
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 import csv
 import time
-import yfinance as yf
+
+# Python LIbraries
 import numpy as np
+import pandas as pd
+
+# Local Libraries
+from inflection import underscore
+import yfinance as yf
 
 def cleanData(data):
     jsonData = json.loads(data)
@@ -59,6 +65,17 @@ def get_balance_sheet(ticker, exchange, freq='yearly'):
 def get_roe(ticker, exchange, freq='yearly'):
     ''' Retrieves the balance sheet and financials from yfinance. Calculates the average shareholder equity and
     determines the Return on Equity '''
+
+    def match_dates(frame1, frame2):
+        """ Returns the intersection of dates between two input frames and the smallest date """
+        dates_frame1 = frame1.index.strftime('%Y-%m-%d')
+        dates_array1 = pd.Index.ravel(dates_frame1, order='C')
+        dates_frame2 = frame2.index.strftime('%Y-%m-%d')
+        dates_array2 = pd.Index.ravel(dates_frame2, order='C')
+        return_array = np.intersect1d(dates_array1, dates_array2)
+        minimum = np.amin(return_array)
+        return return_array, minimum 
+
     if (exchange == 'ASX'):
         ticker += '.AX'
 
@@ -67,35 +84,50 @@ def get_roe(ticker, exchange, freq='yearly'):
     if freq == 'yearly':
         netIncomeDf = stock.financials.loc['Net Income'].to_frame()
         netIncomeDf = netIncomeDf.iloc[::-1]
-        ShareholderEquityDf = stock.balance_sheet.loc['Total Stockholder Equity'].to_frame()
-        ShareholderEquityDf = ShareholderEquityDf.iloc[::-1]
+        shareholderEquityDf = stock.balance_sheet.loc['Total Stockholder Equity'].to_frame()
+        shareholderEquityDf = shareholderEquityDf.iloc[::-1]
     else:
         netIncomeDf = stock.quarterly_financials.loc['Net Income'].to_frame()
         netIncomeDf = netIncomeDf.iloc[::-1]
-        ShareholderEquityDf = stock.quarterly_balance_sheet.loc['Total Stockholder Equity'].to_frame()
-        ShareholderEquityDf = ShareholderEquityDf.iloc[::-1]
-
+        shareholderEquityDf = stock.quarterly_balance_sheet.loc['Total Stockholder Equity'].to_frame()
+        shareholderEquityDf = shareholderEquityDf.iloc[::-1]
+    
     averageShareHolderEquity = []
-    for index, value in enumerate(ShareholderEquityDf.values):
+    dates, minDate = match_dates(netIncomeDf, shareholderEquityDf)
+
+    for index, date in enumerate(dates):
+        if date == minDate:
+            averageShareHolderEquity.append(0)
+            continue
+        timestamp = np.datetime64(date)
+        delta = np.timedelta64(1, 'Y')
+        print(timestamp - delta)
+        print(netIncomeDf.loc[timestamp]['Net Income'])
+        print(shareholderEquityDf.loc[timestamp]['Total Stockholder Equity'])
+
+       # KEEP WRITING HERE 
+       # Consider Quarterly and Annualy
+
+    for index, value in enumerate(shareholderEquityDf.values):
         if index == 0:
             # we cannot calculate the average for the first date
             averageShareHolderEquity.append(0)
             continue
-        avgSE = (ShareholderEquityDf.values[index - 1] + value) / 2
+        avgSE = (shareholderEquityDf.values[index - 1] + value) / 2
         averageShareHolderEquity.append(avgSE[0])
-    ShareholderEquityDf['average_shareholder_equity'] = averageShareHolderEquity
+    shareholderEquityDf['average_shareholder_equity'] = averageShareHolderEquity
     roe = []
-    for index, value in enumerate(ShareholderEquityDf['average_shareholder_equity'].values):
+    for index, value in enumerate(shareholderEquityDf['average_shareholder_equity'].values):
         if index == 0:
             roe.append(0)
             continue
         roeTmp = netIncomeDf.iloc[index].get('Net Income') / value
         roe.append(roeTmp)
-    ShareholderEquityDf['return_on_equity'] = roe
+    shareholderEquityDf['return_on_equity'] = roe
 
-    newIndex = ShareholderEquityDf.index.strftime('%Y-%m-%d')
-    ShareholderEquityDf['Index'] = newIndex
-    finalDf = ShareholderEquityDf.drop(columns=['Total Stockholder Equity', 'average_shareholder_equity'])
+    newIndex = shareholderEquityDf.index.strftime('%Y-%m-%d')
+    shareholderEquityDf['Index'] = newIndex
+    finalDf = shareholderEquityDf.drop(columns=['Total Stockholder Equity', 'average_shareholder_equity'])
     finalDf = finalDf.set_index('Index')
     roeDict = json.loads(finalDf.transpose().to_json())
 
