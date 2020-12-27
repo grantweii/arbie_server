@@ -93,42 +93,32 @@ def get_roe(ticker, exchange, freq='yearly'):
         shareholderEquityDf = shareholderEquityDf.iloc[::-1]
     
     averageShareHolderEquity = []
+    returnOnEquity = []
     dates, minDate = match_dates(netIncomeDf, shareholderEquityDf)
 
-    for index, date in enumerate(dates):
-        if date == minDate:
-            averageShareHolderEquity.append(0)
-            continue
-        timestamp = np.datetime64(date)
-        delta = np.timedelta64(1, 'Y')
-        print(timestamp - delta)
-        print(netIncomeDf.loc[timestamp]['Net Income'])
-        print(shareholderEquityDf.loc[timestamp]['Total Stockholder Equity'])
-
-       # KEEP WRITING HERE 
-       # Consider Quarterly and Annualy
-
-    for index, value in enumerate(shareholderEquityDf.values):
-        if index == 0:
+    for index, _ in enumerate(dates):
+        currDate = dates[index]
+        prevDate = dates[index - 1]
+        if currDate == minDate:
             # we cannot calculate the average for the first date
             averageShareHolderEquity.append(0)
+            returnOnEquity.append(0)
             continue
-        avgSE = (shareholderEquityDf.values[index - 1] + value) / 2
-        averageShareHolderEquity.append(avgSE[0])
-    shareholderEquityDf['average_shareholder_equity'] = averageShareHolderEquity
-    roe = []
-    for index, value in enumerate(shareholderEquityDf['average_shareholder_equity'].values):
-        if index == 0:
-            roe.append(0)
-            continue
-        roeTmp = netIncomeDf.iloc[index].get('Net Income') / value
-        roe.append(roeTmp)
-    shareholderEquityDf['return_on_equity'] = roe
 
-    newIndex = shareholderEquityDf.index.strftime('%Y-%m-%d')
-    shareholderEquityDf['Index'] = newIndex
-    finalDf = shareholderEquityDf.drop(columns=['Total Stockholder Equity', 'average_shareholder_equity'])
-    finalDf = finalDf.set_index('Index')
+        currNetIncome = netIncomeDf.loc[np.datetime64(currDate)]['Net Income']
+        currSE = shareholderEquityDf.loc[np.datetime64(currDate)]['Total Stockholder Equity']
+        prevSE = shareholderEquityDf.loc[np.datetime64(prevDate)]['Total Stockholder Equity']
+        
+        avgSE = (prevSE + currSE) / 2
+        averageShareHolderEquity.append(avgSE)
+        
+        roe = currNetIncome / avgSE
+        returnOnEquity.append(roe)
+    
+    # Create dataframe to be processed
+    data = list(zip(averageShareHolderEquity, returnOnEquity))
+    finalDf = pd.DataFrame(data, columns=['average_shareholder_equity', 'return_on_equity'], index=dates)
+    
     roeDict = json.loads(finalDf.transpose().to_json())
 
     roeArray = []
@@ -227,4 +217,4 @@ def store_premium_financials(ticker, freq, startingDate, exchange):
             failWriter.writerow(ticker)
 
 if __name__ == '__main__':
-    get_roe("MSFT", 'NASDAQ')
+    print(get_roe("MSFT", 'NASDAQ'))
