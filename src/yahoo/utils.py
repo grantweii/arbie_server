@@ -69,7 +69,9 @@ def get_roe(ticker, exchange, freq='yearly'):
     def match_dates(frame1, frame2):
         """ Returns the intersection of dates between two input frames and the smallest date """
         dates_frame1 = frame1.index.strftime('%Y-%m-%d')
+        print(dates_frame1)
         dates_array1 = pd.Index.ravel(dates_frame1, order='C')
+        print(dates_array1)
         dates_frame2 = frame2.index.strftime('%Y-%m-%d')
         dates_array2 = pd.Index.ravel(dates_frame2, order='C')
         return_array = np.intersect1d(dates_array1, dates_array2)
@@ -215,6 +217,3 @@ def store_premium_financials(ticker, freq, startingDate, exchange):
         with open(failFilePath, 'a', newline='') as failCsv:
             failWriter = csv.writer(failCsv)
             failWriter.writerow(ticker)
-
-if __name__ == '__main__':
-    print(get_roe("MSFT", 'NASDAQ'))
