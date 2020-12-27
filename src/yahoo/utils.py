@@ -1,29 +1,39 @@
+# Standard Python Libraries
 import requests
 import json
-from inflection import underscore
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 import csv
 import time
 
+# Python LIbraries
+import numpy as np
+import pandas as pd
+
+# Local Libraries
+from inflection import underscore
+import yfinance as yf
+
+def cleanData(data):
+    jsonData = json.loads(data)
+    timeseries = jsonData.get('timeseries').get('result')
+    list = []
+    for item in timeseries:
+        key = item.get('meta').get('type')[0]
+        values = item.get(key)
+        cleanKey = underscore(key.replace('annual', '').replace('quarterly', ''))
+        if values is not None:
+            for entry in values:
+                if entry is not None:
+                    entryDate = entry.get('asOfDate')
+                    entryFigure = entry.get('reportedValue').get('raw')
+                    list.append({ 'entry': cleanKey, 'date': entryDate, 'value': entryFigure })
+    return list
+
 def get_cashflow(ticker, exchange, freq='yearly'):
+    ''' Directly accesses yahoo api to retrieve the cashflow statement '''
     if (exchange == 'ASX'):
         ticker += '.AX'
-    def cleanData(data):
-        jsonData = json.loads(data)
-        timeseries = jsonData.get('timeseries').get('result')
-        list = []
-        for item in timeseries:
-            key = item.get('meta').get('type')[0]
-            values = item.get(key)
-            cleanKey = underscore(key.replace('annual', '').replace('quarterly', ''))
-            if values is not None:
-                for entry in values:
-                    if entry is not None:
-                        entryDate = entry.get('asOfDate')
-                        entryFigure = entry.get('reportedValue').get('raw')
-                        list.append({ 'entry': cleanKey, 'date': entryDate, 'value': entryFigure })
-        return list
 
     epochTime = int(time.time())
     if freq == 'yearly':
@@ -36,6 +46,93 @@ def get_cashflow(ticker, exchange, freq='yearly'):
 
     return cashflow
 
+def get_balance_sheet(ticker, exchange, freq='yearly'):
+    ''' Directly accesses yahoo api to retrieve the balance sheet '''
+    if (exchange == 'ASX'):
+        ticker += '.AX'
+
+    epochTime = int(time.time())
+    if freq == 'yearly':
+        balanceSheetUrl = 'https://query2.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/%s?lang=en-AU&region=AU&symbol=%s&padTimeSeries=true&type=annualTotalAssets,trailingTotalAssets,annualStockholdersEquity,trailingStockholdersEquity,annualGainsLossesNotAffectingRetainedEarnings,trailingGainsLossesNotAffectingRetainedEarnings,annualRetainedEarnings,trailingRetainedEarnings,annualCapitalStock,trailingCapitalStock,annualTotalLiabilitiesNetMinorityInterest,trailingTotalLiabilitiesNetMinorityInterest,annualTotalNonCurrentLiabilitiesNetMinorityInterest,trailingTotalNonCurrentLiabilitiesNetMinorityInterest,annualOtherNonCurrentLiabilities,trailingOtherNonCurrentLiabilities,annualNonCurrentDeferredRevenue,trailingNonCurrentDeferredRevenue,annualNonCurrentDeferredTaxesLiabilities,trailingNonCurrentDeferredTaxesLiabilities,annualLongTermDebt,trailingLongTermDebt,annualCurrentLiabilities,trailingCurrentLiabilities,annualOtherCurrentLiabilities,trailingOtherCurrentLiabilities,annualCurrentDeferredRevenue,trailingCurrentDeferredRevenue,annualCurrentAccruedExpenses,trailingCurrentAccruedExpenses,annualIncomeTaxPayable,trailingIncomeTaxPayable,annualAccountsPayable,trailingAccountsPayable,annualCurrentDebt,trailingCurrentDebt,annualTotalNonCurrentAssets,trailingTotalNonCurrentAssets,annualOtherNonCurrentAssets,trailingOtherNonCurrentAssets,annualOtherIntangibleAssets,trailingOtherIntangibleAssets,annualGoodwill,trailingGoodwill,annualInvestmentsAndAdvances,trailingInvestmentsAndAdvances,annualNetPPE,trailingNetPPE,annualAccumulatedDepreciation,trailingAccumulatedDepreciation,annualGrossPPE,trailingGrossPPE,annualCurrentAssets,trailingCurrentAssets,annualOtherCurrentAssets,trailingOtherCurrentAssets,annualInventory,trailingInventory,annualAccountsReceivable,trailingAccountsReceivable,annualCashCashEquivalentsAndShortTermInvestments,trailingCashCashEquivalentsAndShortTermInvestments,annualOtherShortTermInvestments,trailingOtherShortTermInvestments,annualCashAndCashEquivalents,trailingCashAndCashEquivalents&merge=false&period1=493590046&period2=%s&corsDomain=au.finance.yahoo.com' % (ticker, ticker, epochTime)
+    else:
+        balanceSheetUrl = 'https://query1.finance.yahoo.com/ws/fundamentals-timeseries/v1/finance/timeseries/%s?lang=en-AU&region=AU&symbol=%s&padTimeSeries=true&type=quarterlyTotalAssets,trailingTotalAssets,quarterlyStockholdersEquity,trailingStockholdersEquity,quarterlyGainsLossesNotAffectingRetainedEarnings,trailingGainsLossesNotAffectingRetainedEarnings,quarterlyRetainedEarnings,trailingRetainedEarnings,quarterlyCapitalStock,trailingCapitalStock,quarterlyTotalLiabilitiesNetMinorityInterest,trailingTotalLiabilitiesNetMinorityInterest,quarterlyTotalNonCurrentLiabilitiesNetMinorityInterest,trailingTotalNonCurrentLiabilitiesNetMinorityInterest,quarterlyOtherNonCurrentLiabilities,trailingOtherNonCurrentLiabilities,quarterlyNonCurrentDeferredRevenue,trailingNonCurrentDeferredRevenue,quarterlyNonCurrentDeferredTaxesLiabilities,trailingNonCurrentDeferredTaxesLiabilities,quarterlyLongTermDebt,trailingLongTermDebt,quarterlyCurrentLiabilities,trailingCurrentLiabilities,quarterlyOtherCurrentLiabilities,trailingOtherCurrentLiabilities,quarterlyCurrentDeferredRevenue,trailingCurrentDeferredRevenue,quarterlyCurrentAccruedExpenses,trailingCurrentAccruedExpenses,quarterlyIncomeTaxPayable,trailingIncomeTaxPayable,quarterlyAccountsPayable,trailingAccountsPayable,quarterlyCurrentDebt,trailingCurrentDebt,quarterlyTotalNonCurrentAssets,trailingTotalNonCurrentAssets,quarterlyOtherNonCurrentAssets,trailingOtherNonCurrentAssets,quarterlyOtherIntangibleAssets,trailingOtherIntangibleAssets,quarterlyGoodwill,trailingGoodwill,quarterlyInvestmentsAndAdvances,trailingInvestmentsAndAdvances,quarterlyNetPPE,trailingNetPPE,quarterlyAccumulatedDepreciation,trailingAccumulatedDepreciation,quarterlyGrossPPE,trailingGrossPPE,quarterlyCurrentAssets,trailingCurrentAssets,quarterlyOtherCurrentAssets,trailingOtherCurrentAssets,quarterlyInventory,trailingInventory,quarterlyAccountsReceivable,trailingAccountsReceivable,quarterlyCashCashEquivalentsAndShortTermInvestments,trailingCashCashEquivalentsAndShortTermInvestments,quarterlyOtherShortTermInvestments,trailingOtherShortTermInvestments,quarterlyCashAndCashEquivalents,trailingCashAndCashEquivalents&merge=false&period1=493590046&period2=%s&corsDomain=au.finance.yahoo.com' % (ticker, ticker, epochTime)
+    
+    data = requests.get(url=balanceSheetUrl).text
+    balanceSheet = cleanData(data)
+    
+    return balanceSheet
+
+def get_roe(ticker, exchange, freq='yearly'):
+    ''' Retrieves the balance sheet and financials from yfinance. Calculates the average shareholder equity and
+    determines the Return on Equity '''
+
+    def match_dates(frame1, frame2):
+        """ Returns the intersection of dates between two input frames and the smallest date """
+        dates_frame1 = frame1.index.strftime('%Y-%m-%d')
+        print(dates_frame1)
+        dates_array1 = pd.Index.ravel(dates_frame1, order='C')
+        print(dates_array1)
+        dates_frame2 = frame2.index.strftime('%Y-%m-%d')
+        dates_array2 = pd.Index.ravel(dates_frame2, order='C')
+        return_array = np.intersect1d(dates_array1, dates_array2)
+        minimum = np.amin(return_array)
+        return return_array, minimum 
+
+    if (exchange == 'ASX'):
+        ticker += '.AX'
+
+    stock = yf.Ticker(ticker)
+
+    if freq == 'yearly':
+        netIncomeDf = stock.financials.loc['Net Income'].to_frame()
+        netIncomeDf = netIncomeDf.iloc[::-1]
+        shareholderEquityDf = stock.balance_sheet.loc['Total Stockholder Equity'].to_frame()
+        shareholderEquityDf = shareholderEquityDf.iloc[::-1]
+    else:
+        netIncomeDf = stock.quarterly_financials.loc['Net Income'].to_frame()
+        netIncomeDf = netIncomeDf.iloc[::-1]
+        shareholderEquityDf = stock.quarterly_balance_sheet.loc['Total Stockholder Equity'].to_frame()
+        shareholderEquityDf = shareholderEquityDf.iloc[::-1]
+    
+    averageShareHolderEquity = []
+    returnOnEquity = []
+    dates, minDate = match_dates(netIncomeDf, shareholderEquityDf)
+
+    for index, _ in enumerate(dates):
+        currDate = dates[index]
+        prevDate = dates[index - 1]
+        if currDate == minDate:
+            # we cannot calculate the average for the first date
+            averageShareHolderEquity.append(0)
+            returnOnEquity.append(0)
+            continue
+
+        currNetIncome = netIncomeDf.loc[np.datetime64(currDate)]['Net Income']
+        currSE = shareholderEquityDf.loc[np.datetime64(currDate)]['Total Stockholder Equity']
+        prevSE = shareholderEquityDf.loc[np.datetime64(prevDate)]['Total Stockholder Equity']
+        
+        avgSE = (prevSE + currSE) / 2
+        averageShareHolderEquity.append(avgSE)
+        
+        roe = currNetIncome / avgSE
+        returnOnEquity.append(roe)
+    
+    # Create dataframe to be processed
+    data = list(zip(averageShareHolderEquity, returnOnEquity))
+    finalDf = pd.DataFrame(data, columns=['average_shareholder_equity', 'return_on_equity'], index=dates)
+    
+    roeDict = json.loads(finalDf.transpose().to_json())
+
+    roeArray = []
+    # front end requires the data to be in this format
+    for date in roeDict.keys():
+        roeArray.append({
+            'entry': 'return_on_equity',
+            'date': date,
+            'value': roeDict.get(date).get('return_on_equity'),
+        })
+    
+    return roeArray
 
 # we will ony store values >= the startDate
 def store_premium_financials(ticker, freq, startingDate, exchange):
@@ -120,6 +217,3 @@ def store_premium_financials(ticker, freq, startingDate, exchange):
         with open(failFilePath, 'a', newline='') as failCsv:
             failWriter = csv.writer(failCsv)
             failWriter.writerow(ticker)
-
-
-            
