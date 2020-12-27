@@ -12,7 +12,7 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 # initialise db
 db = SQLAlchemy(app) 
-some_engine = create_engine('postgres+psycopg2://oaqque:53090830Aa@localhost:5432/db')
+some_engine = create_engine('postgres+psycopg2://grantwei:$2B6MvzvshKl@localhost:5432/db')
 # some_engine = create_engine('postgres+psycopg2://postgres:w6e8N6w3LI3M@arbie.crgx3ghlstn1.ap-southeast-2.rds.amazonaws.com:5432/db')
 Session = sessionmaker(bind=some_engine)
 session = Session()
