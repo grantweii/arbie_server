@@ -151,13 +151,13 @@ class StocksView(FlaskView):
     def getExchanges(self):
         return { 'result': exchanges }
 
-    @route('/<id>/price')
-    def getPrices(self, id):
+    @route('/<id>/historical-price')
+    def getHistoricalPriceData(self, id):
         stock = Stock.getStock(id)
         ticker = stock.get('ticker')
         exchange = stock.get('exchange')
-        prices = getFreshPriceData(ticker, exchange)
-        return { 'result': 'hello' }
+        prices = getFreshPriceData(ticker, exchange, jsonify=True)
+        return { 'result': prices }
 
 class AnnualFinancialsView(FlaskView):
     # representations = {'application/json': output_json}

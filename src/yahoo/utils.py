@@ -24,13 +24,13 @@ def getFreshPriceData(ticker, exchange, jsonify=False):
     datafilePath = os.path.abspath('/Users/grantwei/datafiles/price/{}/{}.csv'.format(exchange.lower(), ticker))
     df = pd.read_csv(datafilePath)
     df = df.drop(['Dividends', 'Stock Splits', 'Close'], 'columns')
-    df = df.rename(columns={'Adj Close': 'Close'})
+    df = df.rename(columns={'Adj Close': 'Close'})    
+    if jsonify:
+        df = df.set_index('Date')
+        return json.loads(df.to_json(orient='index'))
+    
     df['Date'] = pd.to_datetime(df['Date'])
     df = df.set_index('Date')
-    if jsonify:
-        print('jsonified**', df.to_json())
-        return df.to_json()
-    print('df ****8', df)
     return df
 
 def pullHistorical(ticker, exchange):
@@ -131,9 +131,7 @@ def get_roe(ticker, exchange, freq='yearly'):
     def match_dates(frame1, frame2):
         """ Returns the intersection of dates between two input frames and the smallest date """
         dates_frame1 = frame1.index.strftime('%Y-%m-%d')
-        print(dates_frame1)
         dates_array1 = pd.Index.ravel(dates_frame1, order='C')
-        print(dates_array1)
         dates_frame2 = frame2.index.strftime('%Y-%m-%d')
         dates_array2 = pd.Index.ravel(dates_frame2, order='C')
         return_array = np.intersect1d(dates_array1, dates_array2)
