@@ -4,6 +4,7 @@ import json
 from flask_sqlalchemy import SQLAlchemy
 from app import session, db
 from sqlalchemy import or_, distinct, func
+from src.yahoo.utils import pullHistorical
 
 class Stock(db.Model, SerializerMixin):
     __tablename__ = 'stock'

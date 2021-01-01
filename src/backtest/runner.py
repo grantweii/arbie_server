@@ -1,13 +1,13 @@
 from src import db as database
 import os
-import yfinance as yf
 import time
-from datetime import timedelta, date, datetime
+from datetime import datetime
 import importlib
 from src.backtest import backtest
 import backtrader as bt
 import json
 import pandas as pd
+from src.yahoo.utils import getFreshPriceData
 
 # This runner should 
 # 1. initialise the db connection
@@ -15,12 +15,12 @@ import pandas as pd
 # 3. if parameter "store" is set to True, store results of run in db 
 
 
-tickers = ['PAB', 'VTI']
-industries = []
-sectors = []
-exchange = 'ASX'
+default_tickers = ['PAB', 'VTI']
+default_industries = []
+default_sectors = []
+default_exchange = 'ASX'
 
-default_script = importlib.import_module('src.backtest.strategies.1-naive-strategy')
+default_strategy = '1-naive-strategy.py'
 
 def psqlArray(arr):
     arraySubQueryStr = ""
@@ -36,7 +36,7 @@ def checkExistance(data, inputs, key):
     incorrectInputs = [item for item in inputs if item not in arr]
     if len(incorrectInputs): raise Exception('%s are incorrect inputs for exchange %s' % (', '.join(incorrectInputs), exchange)) 
 
-def getTickersFromIndustries(db):
+def getTickersFromIndustries(db, industries, exchange):
     query = "SELECT DISTINCT industry from stock where exchange = '%s'" % exchange
     distinctData = db.selectQuery(query)
     checkExistance(distinctData, industries, 'industry')
@@ -46,7 +46,7 @@ def getTickersFromIndustries(db):
     print('**** Industries provided: %s. Exchange: %s ****' % (industries, exchange))
     return query
 
-def getTickersFromTickers(db):
+def getTickersFromTickers(db, tickers, exchange):
     query = "SELECT DISTINCT ticker from stock where exchange = '%s'" % exchange
     distinctData = db.selectQuery(query)
     checkExistance(distinctData, tickers, 'ticker')
@@ -56,7 +56,7 @@ def getTickersFromTickers(db):
     print('**** Tickers provided: %s. Exchange: %s ****' % (tickers, exchange))
     return query
 
-def getTickersFromSectors(db):
+def getTickersFromSectors(db, sectors, exchange):
     query = "SELECT DISTINCT sector from stock where exchange = '%s'" % exchange
     distinctData = db.selectQuery(query)
     checkExistance(distinctData, sectors, 'sector')
@@ -66,7 +66,7 @@ def getTickersFromSectors(db):
     print('**** Sectors provided: %s. Exchange: %s ****' % (sectors, exchange))
     return query
 
-def validateParams():
+def validateParams(tickers, industries, sectors, exchange):
     # check parameters
     if not len(tickers) and not len(industries) and not len(sectors):
         raise ValueError('Need to provide at least 1 ticker, industry OR sector')
@@ -79,51 +79,7 @@ def validateParams():
         (len(tickers) and len(sectors))):
         raise ValueError('Please provide only tickers, industries OR sectors')
 
-
-# date should be a datetime
-def getPreviousBusinessDay(date=datetime.today()):
-    offset = max(1, (date.weekday() + 6) % 7 - 3)
-    delta = timedelta(offset)
-    lastBusinessDay = date - delta
-    return lastBusinessDay
-
-
-''' This method is used to pull the historical prices for a list of tickers and append to their datafile if necessary. We make the assumption that if the last entry is the last business day, we dont need to pull fresh data '''
-def pullHistorical(tickers):
-    for ticker in tickers:
-        datafilesPath = os.path.abspath('/Users/grantwei/datafiles/price/{}/{}.csv'.format(exchange.lower(), ticker))
-        # add .AX for asx, must be after the datafilesPath instantiation
-        if exchange == 'ASX': 
-            ticker += '.AX'
-
-        with open(datafilesPath, 'r+', newline='') as dataFile:
-            # get the last entry in the datafile
-            lines = dataFile.read().splitlines()
-            lastLine = lines[-1]
-            dateString = lastLine.split(',')[0]
-
-            # check if datafile is up to date
-            lastBusinessDay = getPreviousBusinessDay()
-            lastStoredDate = datetime.strptime(dateString, '%Y-%m-%d')
-            daysDelta = (lastBusinessDay - lastStoredDate).days
-            # daysDelta can be -1, 0, 1+, where 1+ should retrieve and store
-            # if -1, that means we have stored data for today, hence lastBusinessDay (yesterday) - today = -1
-            if daysDelta <= 0: 
-                print('Skipping %s. Already stored' % ticker)
-                continue
-
-            # need to add one day to get start date
-            date = datetime.strptime(dateString, '%Y-%m-%d')
-            startDate = date + timedelta(days=1)
-            startDateString = startDate.strftime('%Y-%m-%d')
-            df = yf.Ticker(ticker).history(start=startDateString)
-            print('Storing %s. Last date stored: %s' % (ticker, dateString))
-            # Lets just round to 6 dp, should be enough. Write to file as well
-            dataFile.write(df.round(6).to_csv(header=False))
-
-        time.sleep(0.5)
-
-def getData(database, ticker, exchange):
+def getData(ticker, exchange):
     datafilePath = os.path.abspath('/Users/grantwei/datafiles/price/{}/{}.csv'.format(exchange.lower(), ticker))
     df = pd.read_csv(datafilePath)
     df = df.drop(['Dividends', 'Stock Splits', 'Close'], 'columns')
@@ -132,54 +88,72 @@ def getData(database, ticker, exchange):
     df = df.set_index('Date')
     return bt.feeds.PandasData(dataname=df)
 
+# Needs to be able to be initiated from script or front end
 class BacktestRunner():
 
-    def __init__(self, script=default_script):
-        print('SCRIPT SENT THRU', script)
-        self.script = importlib.import_module('src.backtest.strategies.%s' % script.replace('.py', ''))
+
+    # UP TO: JUST REREAD AND FIX THIS WHOLE METHOD, need to refactor rest of file as well...
+    def __init__(self, run_type='script', strategy=default_strategy, **kwargs):
+        print('strategy***', strategy)
+        self.run_type = run_type
+        self.strategy = importlib.import_module('src.backtest.strategies.%s' % strategy.replace('.py', ''))
+        # script wont have any parameters, it will use default for all
+        if run_type == 'script':
+            self.tickers = default_tickers
+            self.industries = default_industries
+            self.sectors = default_sectors
+            self.exchange = default_exchange
+        elif run_type == 'front-end':
+            # front end can provide the script and only 1 ticker currently
+            self.tickers = [kwargs.get('ticker')]
+            self.exchange = kwargs.get('exchange')
+            self.industries = []
+            self.sectors = []
+        else:
+            raise ValueError('Run type must be of either script or front-end')
+
 
     def run(self, store=None):
         ''' Entry method into the script '''
         start_time = time.time()
-        validateParams()
+        validateParams(self.tickers, self.industries, self.sectors, self.exchange)
 
         # initialise DB connection
         db = database.DB()
 
         # for industries, sectors as input need to get relevant tickers
         # check existance of the entry before querying
-        if len(industries):
-            query = getTickersFromIndustries(db)
-        elif len(tickers):
-            query = getTickersFromTickers(db)
-        elif len(sectors):
-            query = getTickersFromSectors(db)
+        if len(self.industries):
+            query = getTickersFromIndustries(db, self.industries, self.exchange)
+        elif len(self.tickers):
+            query = getTickersFromTickers(db, self.tickers, self.exchange)
+        elif len(self.sectors):
+            query = getTickersFromSectors(db, self.sectors, self.exchange)
+
 
         data = db.selectQuery(query)
         tickersToPull = [entry['ticker'] for entry in data]
         print('Found %s stocks' % len(tickersToPull))
         print('List:', tickersToPull)
-        
-        # pull fresh prices
-        pullHistorical(tickersToPull)
 
-        backtest = self.initBacktester(db, tickersToPull, exchange)
+        backtest = self.initBacktester(db, tickersToPull)
 
         print("--- %s seconds ---" % (time.time() - start_time))
 
 
-    def initBacktester(self, db, tickers, exchange):
+    def initBacktester(self, db, tickers):
         if not len(tickers):
             raise ValueError('Need to provide at least 1 ticker to run a backtest')
 
         tickerResults = {}
         for ticker in tickers:
             print('***** Running backtest for %s *****' % ticker)
-            # initialise DB connection 
-            data = getData(db, ticker, exchange)
+            # retrieve price data
+            df = getFreshPriceData(ticker, self.exchange)
+            data = bt.feeds.PandasData(dataname=df)
 
             cerebro = bt.Cerebro()
-            cerebro.addstrategy(self.script.Backtest, ticker=ticker)
+            cerebro.addstrategy(self.strategy.Backtest, ticker=ticker)
 
             cerebro.adddata(data)
             
@@ -190,7 +164,4 @@ class BacktestRunner():
             tickerResults = { **tickerResults, ticker: strat[0].getResults() }
 
         self.performance = tickerResults
-
-
-        
 

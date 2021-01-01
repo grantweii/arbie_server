@@ -11,7 +11,7 @@ from iexfinance.stocks import Stock as IEXStock
 # Local Libraries
 from .models import Stock, AnnualFinancial, QuarterlyFinancial
 from .route_helpers import output_json
-from .yahoo.utils import get_cashflow, get_roe
+from .yahoo.utils import get_cashflow, get_roe, getFreshPriceData
 from .lists import exchanges
 from .config import Config
 import os
@@ -150,7 +150,14 @@ class StocksView(FlaskView):
     @route('/exchanges')
     def getExchanges(self):
         return { 'result': exchanges }
-         
+
+    @route('/<id>/price')
+    def getPrices(self, id):
+        stock = Stock.getStock(id)
+        ticker = stock.get('ticker')
+        exchange = stock.get('exchange')
+        prices = getFreshPriceData(ticker, exchange)
+        return { 'result': 'hello' }
 
 class AnnualFinancialsView(FlaskView):
     # representations = {'application/json': output_json}
@@ -205,8 +212,10 @@ class BacktestView(FlaskView):
 
     @route('/run', methods=['POST'])
     def runBacktest(self):
-        script = request.json.get('script')
-        backtest = BacktestRunner(script)
+        strategy = request.json.get('strategy')
+        stockId = request.json.get('stock_id')
+        stock = Stock.getStock(stockId)
+        backtest = BacktestRunner('front-end', strategy, ticker=stock.get('ticker'), exchange=stock.get('exchange'))
         backtest.run()
         return { 'result': backtest.performance } 
 
