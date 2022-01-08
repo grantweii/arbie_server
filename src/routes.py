@@ -11,9 +11,13 @@ from iexfinance.stocks import Stock as IEXStock
 # Local Libraries
 from .models import Stock, AnnualFinancial, QuarterlyFinancial
 from .route_helpers import output_json
-from .yahoo.utils import get_cashflow, get_roe
+from .yahoo.utils import get_cashflow, get_roe, getFreshPriceData
 from .lists import exchanges
 from .config import Config
+import os
+from .backtest.runner import BacktestRunner
+import importlib
+import json
 
 def institutionalHoldersAsDict(df):
     df['Date Reported'] = df['Date Reported'].astype(str)
@@ -28,7 +32,7 @@ def majorHoldersAsDict(df):
     return dict
 
 class StocksView(FlaskView):
-    representations = {'application/json': output_json}
+    # representations = {'application/json': output_json}
 
     # retrieves all stocks
     def index(self):
@@ -146,10 +150,17 @@ class StocksView(FlaskView):
     @route('/exchanges')
     def getExchanges(self):
         return { 'result': exchanges }
-         
+
+    @route('/<id>/historical-price')
+    def getHistoricalPriceData(self, id):
+        stock = Stock.getStock(id)
+        ticker = stock.get('ticker')
+        exchange = stock.get('exchange')
+        prices = getFreshPriceData(ticker, exchange, jsonify=True)
+        return { 'result': prices }
 
 class AnnualFinancialsView(FlaskView):
-    representations = {'application/json': output_json}
+    # representations = {'application/json': output_json}
 
     def index(self):
         stock_id = request.args.get('stock_id')
@@ -173,7 +184,7 @@ class AnnualFinancialsView(FlaskView):
         return { 'result': results }
 
 class QuarterlyFinancialsView(FlaskView):
-    representations = {'application/json': output_json}
+    # representations = {'application/json': output_json}
 
     def index(self):
         stock_id = request.args.get('stock_id')
@@ -188,11 +199,35 @@ class QuarterlyFinancialsView(FlaskView):
         stock = Stock.getStock(stock_id)
         results = get_cashflow(stock.get('ticker'), stock.get('exchange'), 'quarterly')
         return { 'result': results } 
-    
+
     @route('/return-on-equity')
     def getRoe(self):
         stock_id = request.args.get('stock_id')
         stock = Stock.getStock(stock_id)
         results = get_roe(stock.get('ticker'), stock.get('exchange'), 'quarterly')
         return { 'result': results }
+
+class BacktestView(FlaskView):
+    # representations = {'application/json': output_json}
+
+    @route('/run', methods=['POST'])
+    def runBacktest(self):
+        strategy = request.json.get('strategy')
+        stockId = request.json.get('stock_id')
+        stock = Stock.getStock(stockId)
+        backtest = BacktestRunner('front-end', strategy, ticker=stock.get('ticker'), exchange=stock.get('exchange'))
+        backtest.run()
+        return { 'result': backtest.performance } 
+
+    @route('/all', methods=['GET'])
+    def getAll(self):
+        path = 'src/backtest/strategies'
+        files = [f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))]
+        backtests = []
+        for file in files:
+            script = importlib.import_module('src.backtest.strategies.%s' % file.replace('.py', ''))
+            backtests.append({ 'name': file, 'description': script.Backtest.__doc__})
+
+        return { 'result': backtests }
     
+

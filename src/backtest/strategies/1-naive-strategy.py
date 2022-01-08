@@ -6,8 +6,8 @@ import os
 from src import db as database
 import csv
 
-''' This is a naive strategy for testing purposes. If todays price > yesterdays price, buy, otherwise sell '''
 class Backtest(bt.Strategy):
+    ''' This is a naive strategy for testing purposes. If todays price > yesterdays price, buy, otherwise sell '''
     params = dict(ticker='')
     STARTING_CASH = 10000
     POSITION_SIZE_PCNT = 1
@@ -20,6 +20,10 @@ class Backtest(bt.Strategy):
         self.low = self.datas[0].low
         self.close = self.datas[0].close
         self.ticker = self.params.ticker
+        # access current date by self.date(0)
+        self.date = self.datas[0].datetime.date
+        self.entries = []
+        self.exits = []
         
     def log(self, txt, dt=None):
         ''' Logging function for this strategy'''
@@ -33,16 +37,17 @@ class Backtest(bt.Strategy):
     def next(self):
         # self.log('Close: %.2f' % self.close[0])
         size = self.calculateSize(self.close[0])
-        
         if self.sma > self.data.close and self.cash > 0:
             # we buy
             size = self.calculateSize(self.close[0])
             self.portfolio_shares = size
             self.cash = 0
+            self.entries.append(self.date(0).strftime('%Y-%m-%d'))
         elif self.sma < self.data.close and self.portfolio_shares > 0:
             cash = self.portfolio_shares * self.close[0]
             self.portfolio_shares = 0
             self.cash = cash
+            self.exits.append(self.date(0).strftime('%Y-%m-%d'))
 
     def stop(self):
         print('*** BT End for %s ***' % self.ticker)
@@ -50,3 +55,13 @@ class Backtest(bt.Strategy):
         print('Final portfolio shares', self.portfolio_shares)
         print('Final portfolio value', self.close[0] * self.portfolio_shares)
         print('Final cash', self.cash)
+
+    def getResults(self):
+        return {
+            'entries': self.entries,
+            'exits': self.exits,
+            'price': self.close[0],
+            'num_shares': self.portfolio_shares,
+            'cash': self.cash,
+            'value_shares': self.close[0] * self.portfolio_shares
+        }

@@ -3,9 +3,11 @@ from src.config import DevelopmentConfig
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from flask_cors import CORS
 
 # initialise flask
 app = Flask(__name__)
+CORS(app)
 
 app.config.from_object(DevelopmentConfig)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -19,11 +21,12 @@ session = Session()
 
 # initialise routes
 
-from src.routes import StocksView, AnnualFinancialsView, QuarterlyFinancialsView
+from src.routes import StocksView, AnnualFinancialsView, QuarterlyFinancialsView, BacktestView
 
 StocksView.register(app, route_base='/stocks', trailing_slash=False)
 AnnualFinancialsView.register(app, route_base='/annual-financials', trailing_slash=False)
 QuarterlyFinancialsView.register(app, route_base='/quarterly-financials', trailing_slash=False)
+BacktestView.register(app, route_base='/backtest', trailing_slash=False)
 
 if __name__ == '__main__':
     app.run()

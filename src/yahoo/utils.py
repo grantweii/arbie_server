@@ -2,9 +2,71 @@
 import requests
 import json
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import csv
 import time
+import yfinance as yf
+import os
+import pandas as pd
+
+# date should be a datetime
+def getPreviousBusinessDay(date=datetime.today()):
+    offset = max(1, (date.weekday() + 6) % 7 - 3)
+    delta = timedelta(offset)
+    lastBusinessDay = date - delta
+    return lastBusinessDay
+
+
+# This probably shouldnt be in this yahoo utils folder...
+def getFreshPriceData(ticker, exchange, jsonify=False):
+    ''' Pulls fresh fundamentals and returns price data from locally stored files '''
+    pullHistorical(ticker, exchange)
+    datafilePath = os.path.abspath('/Users/grantwei/datafiles/price/{}/{}.csv'.format(exchange.lower(), ticker))
+    df = pd.read_csv(datafilePath)
+    df = df.drop(['Dividends', 'Stock Splits', 'Close'], 'columns')
+    df = df.rename(columns={'Adj Close': 'Close'})    
+    if jsonify:
+        df = df.set_index('Date')
+        return json.loads(df.to_json(orient='index'))
+    
+    df['Date'] = pd.to_datetime(df['Date'])
+    df = df.set_index('Date')
+    return df
+
+def pullHistorical(ticker, exchange):
+    ''' This method is used to pull the historical prices for a ticker and append to their datafile if necessary. We make the assumption that if the last entry is the last business day, we dont need to pull fresh data '''
+    print('Pulling fresh price data for %s' % ticker)
+    datafilesPath = os.path.abspath('/Users/grantwei/datafiles/price/{}/{}.csv'.format(exchange.lower(), ticker))
+    # add .AX for asx, must be after the datafilesPath instantiation
+    if exchange == 'ASX': 
+        ticker += '.AX'
+
+    with open(datafilesPath, 'r+', newline='') as dataFile:
+        # get the last entry in the datafile
+        lines = dataFile.read().splitlines()
+        lastLine = lines[-1]
+        dateString = lastLine.split(',')[0]
+
+        # check if datafile is up to date
+        lastBusinessDay = getPreviousBusinessDay()
+        lastStoredDate = datetime.strptime(dateString, '%Y-%m-%d')
+        daysDelta = (lastBusinessDay - lastStoredDate).days
+        # daysDelta can be -1, 0, 1+, where 1+ should retrieve and store
+        # if -1, that means we have stored data for today, hence lastBusinessDay (yesterday) - today = -1
+        if daysDelta <= 0: 
+            print('Skipping %s. Already stored' % ticker)
+            return
+
+        # need to add one day to get start date
+        date = datetime.strptime(dateString, '%Y-%m-%d')
+        startDate = date + timedelta(days=1)
+        startDateString = startDate.strftime('%Y-%m-%d')
+        df = yf.Ticker(ticker).history(start=startDateString)
+        print('Storing fresh price data for %s. Last date stored: %s' % (ticker, dateString))
+        # Lets just round to 6 dp, should be enough. Write to file as well
+        dataFile.write(df.round(6).to_csv(header=False))
+
+    time.sleep(0.5)
 
 # Python LIbraries
 import numpy as np
@@ -69,9 +131,7 @@ def get_roe(ticker, exchange, freq='yearly'):
     def match_dates(frame1, frame2):
         """ Returns the intersection of dates between two input frames and the smallest date """
         dates_frame1 = frame1.index.strftime('%Y-%m-%d')
-        print(dates_frame1)
         dates_array1 = pd.Index.ravel(dates_frame1, order='C')
-        print(dates_array1)
         dates_frame2 = frame2.index.strftime('%Y-%m-%d')
         dates_array2 = pd.Index.ravel(dates_frame2, order='C')
         return_array = np.intersect1d(dates_array1, dates_array2)
